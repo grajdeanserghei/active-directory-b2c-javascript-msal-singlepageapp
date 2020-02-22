@@ -33,8 +33,11 @@
   <h2>Getting an access token with Azure AD B2C and calling a Web API</h2>
   <div>
     <div id="label">Sign-in with Microsoft Azure AD B2C</div>
-    <button id="auth" onclick="signIn()">Login</button>
-    <button id="callApiButton" class="hidden" onclick="callApi()">Call Web API</button>
+    <button id="auth" onclick="refreshToken('123')">Login</button>
+    <button id="callApiButton" class="hidden" onclick="callApi()">Call Web API</button>	
+	
+	<button id="t123" class="hidden" onclick="refreshToken('123')">Tenant 123</button>
+	<button id="t456" class="hidden" onclick="refreshToken('456')">Tenant 456</button>
   </div>
 
   <pre class="response"></pre>
@@ -43,8 +46,8 @@
 
     // The current application coordinates were pre-registered in a B2C tenant.
     var appConfig = {
-      b2cScopes: ["https://fabrikamb2c.onmicrosoft.com/helloapi/demo.read"],
-      webApi: "https://fabrikamb2chello.azurewebsites.net/hello"
+      b2cScopes: ["https://sgsmcs.onmicrosoft.com/smcsapi/smcs.read"],
+      webApi: "https://smcs-demo-b2c-api.azurewebsites.net/hello" //"http://localhost:5000/hello"
     };
 
   </script>
@@ -55,8 +58,8 @@
     // configuration to initialize msal
     const msalConfig = {
         auth: {
-            clientId: "e760cab2-b9a1-4c0d-86fb-ff7084abd902", //This is your client ID
-            authority: "https://fabrikamb2c.b2clogin.com/fabrikamb2c.onmicrosoft.com/b2c_1_susi", //This is your tenant info
+            clientId: "05f85b6f-7742-4473-86dd-a45f76157aff", //This is your client ID
+            authority: "https://sgsmcs.b2clogin.com/sgsmcs.onmicrosoft.com/B2C_1A_signup_signin", //This is your tenant info
             validateAuthority: false
         },
         cache: {
@@ -69,9 +72,10 @@
     const myMSALObj = new Msal.UserAgentApplication(msalConfig);
 
     // request to signin - returns an idToken
-    const loginRequest = {
-        scopes: appConfig.b2cScopes
-    };
+    <!-- const loginRequest = { -->
+        <!-- scopes: appConfig.b2cScopes, -->
+		<!-- extraQueryParameters: { 'smcsTenantId': "123"} -->
+    <!-- }; -->
 
     // request to acquire a token for resource access
     const tokenRequest = {
@@ -79,13 +83,60 @@
     };
 
     // signin and acquire a token silently with POPUP flow. Fall back in case of failure with silent acquisition to popup
-    function signIn() {
+    function signIn(tenantId) {
+		var loginRequest = {
+			scopes: appConfig.b2cScopes,
+			extraQueryParameters: { 'smcsTenantIdParam': tenantId}
+		};
         myMSALObj.loginPopup(loginRequest).then(function (loginResponse) {
             getToken(tokenRequest).then(updateUI);
         }).catch(function (error) {
             logMessage(error);
         });
     }
+	
+	<!-- function authCallback(error, response) { -->
+		<!-- logMessage('authCallback', response); -->
+		<!-- var tenantId = myMSALObj.getAccount().idTokenClaims.smcsTenantId; -->
+		<!-- var accessTokenRequest = { -->
+			<!-- scopes: appConfig.b2cScopes, -->
+			<!-- extraQueryParameters: { 'smcsTenantIdParam': tenantId}, -->
+			<!-- forceRefresh: true -->
+		<!-- }; -->
+		
+		<!-- getToken(accessTokenRequest).then(updateUI).catch(function (error) { -->
+            <!-- logMessage(error); -->
+        <!-- }); -->
+	<!-- } -->
+
+	<!-- myMSALObj.handleRedirectCallback(authCallback); -->
+
+	
+	function refreshToken(tenantId) {
+		var accessTokenRequest = {
+			scopes: appConfig.b2cScopes,
+			extraQueryParameters: { 'smcsTenantIdParam': tenantId},
+			forceRefresh: true
+		};
+		
+		<!-- myMSALObj.loginRedirect(accessTokenRequest); -->
+		
+		
+        myMSALObj.loginPopup(accessTokenRequest).then(function (loginResponse) {
+            getToken(accessTokenRequest).then(updateUI);
+        }).catch(function (error) {
+            logMessage(error);
+        });
+    }
+		
+		<!-- myMSALObj.acquireTokenRedirect(accessTokenRequest).then(function (loginResponse) { -->
+            <!-- getToken(accessTokenRequest).then(updateUI) -->
+        <!-- }).catch(function (error) { -->
+            <!-- logMessage(error); -->
+        <!-- }); -->
+    <!-- } -->
+	
+	
 
     //acquire a token silently
     function getToken(tokenRequest) {
@@ -101,9 +152,19 @@
 
     // updates the UI post login/token acqusition
     function updateUI() {
+		console.log(myMSALObj);
       const userName = myMSALObj.getAccount().name;
       console.log(myMSALObj.getAccount());
-      logMessage("User '" + userName + "' logged-in");
+	  var tenantId = myMSALObj.getAccount().idTokenClaims.smcsTenantId;
+	  var applicationRoles = myMSALObj.getAccount().idTokenClaims.roles;
+	  var smcsRole = myMSALObj.getAccount().idTokenClaims.smcsRole;
+	  console.log('tenantId', tenantId);
+	  
+      logMessage("User '" + userName + "' logged-in")
+	  logMessage("Tenant ID: '" + tenantId + "'")
+	  logMessage("Application roles: '" + applicationRoles + "'");	  
+	  logMessage("Project roles: '" + smcsRole + "'");	  
+	  
 
       // add the logout button
       const authButton = document.getElementById('auth');
@@ -117,6 +178,12 @@
       // add the callWebApi button
       const callWebApiButton = document.getElementById('callApiButton');
       callWebApiButton.setAttribute('class', 'visible');
+	  
+	  const t123 = document.getElementById('t123');
+      t123.setAttribute('class', 'visible');
+	  
+	  const t456 = document.getElementById('t456');
+      t456.setAttribute('class', 'visible');
     }
 
     // calls the resource API with the token
@@ -129,6 +196,7 @@
     // helper function to access the resource with the token
     function callApiWithAccessToken(accessToken) {
       // Call the Web API with the AccessToken
+	  logMessage("Calling Web API...");
       $.ajax({
         type: "GET",
         url: appConfig.webApi,
@@ -153,6 +221,14 @@
     function logMessage(s) {
       document.body.querySelector('.response').appendChild(document.createTextNode('\n' + s));
     }
+
+
+	const accessTokenRequest = {
+
+	scopes: appConfig.b2cScopes,
+};
+
+
 
   </script>
 </body>
