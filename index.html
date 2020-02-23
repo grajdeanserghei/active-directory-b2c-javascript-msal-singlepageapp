@@ -36,8 +36,10 @@
     <button id="auth" onclick="refreshToken('123')">Login</button>
     <button id="callApiButton" class="hidden" onclick="callApi()">Call Web API</button>	
 	
-	<button id="t123" class="hidden" onclick="refreshToken('123')">Tenant 123</button>
-	<button id="t456" class="hidden" onclick="refreshToken('456')">Tenant 456</button>
+	<button id="t123" class="hidden tbtn" data-tid="123" onclick="refreshToken('123')">Tenant 123</button>
+	<button id="t456" class="hidden tbtn" data-tid="456" onclick="refreshToken('456')">Tenant 456</button>
+	
+	<button id="t789" class="hidden tbtn" data-tid="789" onclick="refreshToken('789')">Tenant 789</button>
   </div>
 
   <pre class="response"></pre>
@@ -179,11 +181,16 @@
       const callWebApiButton = document.getElementById('callApiButton');
       callWebApiButton.setAttribute('class', 'visible');
 	  
-	  const t123 = document.getElementById('t123');
-      t123.setAttribute('class', 'visible');
+	  const tbtns = document.getElementsByClassName('tbtn'); 
+	  for(var i=0;i<tbtns.length;i++){ 
+		tbtns[i].classList.remove('hidden'); 
+		if(tbtns[i].dataset.tid == tenantId){ 
+			 tbtns[i].setAttribute('disabled', 'disabled'); 
+		}else{ 
+			tbtns[i].removeAttribute('disabled');
+		} 
+	  } 
 	  
-	  const t456 = document.getElementById('t456');
-      t456.setAttribute('class', 'visible');
     }
 
     // calls the resource API with the token
